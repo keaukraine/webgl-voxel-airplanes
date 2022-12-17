@@ -1,0 +1,1 @@
+{"version":3,"file":"DiffuseScrollingFilteredShader.js","sourceRoot":"","sources":["../../../src/shaders/DiffuseScrollingFilteredShader.ts"],"names":[],"mappings":";;;AAAA,qEAAkE;AAElE,MAAa,8BAA+B,SAAQ,+CAAsB;IACtE,QAAQ;QACJ,IAAI,CAAC,gBAAgB,GAAG;;;;;;;;;;;cAWlB,CAAC;QAEP,IAAI,CAAC,kBAAkB,GAAG;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;cAoCpB,CAAC;IACX,CAAC;CACJ;AArDD,wEAqDC"}
