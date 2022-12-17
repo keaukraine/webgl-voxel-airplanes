@@ -1,3 +1,5 @@
+![image](https://user-images.githubusercontent.com/414072/208264339-64b61ab1-30f4-4988-b0a1-761874bd2090.png)
+
 # Voxel airplanes WebGL Demo
 
 Live demo page is available here: https://keaukraine.github.io/webgl-voxel-airplanes/index.html
