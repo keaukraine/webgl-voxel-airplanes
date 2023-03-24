@@ -4,6 +4,8 @@
 
 Live demo page is available here: https://keaukraine.github.io/webgl-voxel-airplanes/index.html
 
+Article explaining rendering pipeline and optimization used in this demo: https://keaukraine.medium.com/voxel-airplanes-3d-webgl-demo-d210d5dfa54e
+
 # Used art and libraries
 
 * Material Icons by Google used under Apache License https://design.google.com/icons/
