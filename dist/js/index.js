@@ -51,6 +51,9 @@ function initUI() {
     setTimeout(() => { var _a; return (_a = document.querySelector(".promo")) === null || _a === void 0 ? void 0 : _a.classList.remove("transparent"); }, 4000);
     setTimeout(() => { var _a; return (_a = document.querySelector("#toggleFullscreen")) === null || _a === void 0 ? void 0 : _a.classList.remove("transparent"); }, 1800);
     const gui = new dat_gui_1.GUI();
+    const dummyConfig = {
+        github: () => window.open("https://github.com/keaukraine/webgl-voxel-airplanes")
+    };
     gui.add(renderer.config, "formation", {
         "Single": 0,
         "Triangle": 1,
@@ -70,5 +73,6 @@ function initUI() {
         .onChange(value => renderer.changePlanePalette(+value));
     gui.add(renderer, "changePlane").name("Next plane");
     gui.add(renderer, "changeTerrain").name("Next terrain");
+    gui.add(dummyConfig, "github").name("Source at Github");
 }
 //# sourceMappingURL=index.js.map

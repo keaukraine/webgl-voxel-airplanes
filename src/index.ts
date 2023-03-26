@@ -56,6 +56,9 @@ function initUI(): void {
     setTimeout(() => document.querySelector("#toggleFullscreen")?.classList.remove("transparent"), 1800);
 
     const gui = new GUI();
+    const dummyConfig = {
+        github: () => window.open("https://github.com/keaukraine/webgl-voxel-airplanes")
+    };
 
     gui.add(
         renderer.config,
@@ -86,4 +89,6 @@ function initUI(): void {
 
     gui.add(renderer, "changePlane").name("Next plane");
     gui.add(renderer, "changeTerrain").name("Next terrain");
+
+    gui.add(dummyConfig, "github").name("Source at Github");
 }

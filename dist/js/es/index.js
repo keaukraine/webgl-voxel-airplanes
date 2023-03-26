@@ -1,3 +1,5 @@
+
+(function(l, r) { if (l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (window.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(window.document);
 class FullScreenUtils {
     /** Enters fullscreen. */
     enterFullScreen() {
@@ -5857,6 +5859,9 @@ function initUI() {
     setTimeout(() => { var _a; return (_a = document.querySelector(".promo")) === null || _a === void 0 ? void 0 : _a.classList.remove("transparent"); }, 4000);
     setTimeout(() => { var _a; return (_a = document.querySelector("#toggleFullscreen")) === null || _a === void 0 ? void 0 : _a.classList.remove("transparent"); }, 1800);
     const gui = new GUI$1();
+    const dummyConfig = {
+        github: () => window.open("https://github.com/keaukraine/webgl-voxel-airplanes")
+    };
     gui.add(renderer.config, "formation", {
         "Single": 0,
         "Triangle": 1,
@@ -5876,5 +5881,6 @@ function initUI() {
         .onChange(value => renderer.changePlanePalette(+value));
     gui.add(renderer, "changePlane").name("Next plane");
     gui.add(renderer, "changeTerrain").name("Next terrain");
+    gui.add(dummyConfig, "github").name("Source at Github");
 }
 //# sourceMappingURL=index.js.map
