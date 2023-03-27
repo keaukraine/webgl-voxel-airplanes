@@ -176,34 +176,6 @@ class Renderer extends webgl_framework_1.BaseRenderer {
         this.TERRAIN_COUNT = 13;
         this.getGroundSideMovementCoefficient = () => Math.sin(this.timerGroundMovement2 * Math.PI * 2);
         gl_matrix_1.vec3.normalize(this.lightDir, [-1, -1, 1]);
-        document.addEventListener("keypress", event => {
-            if (event.key === "1") {
-                // this.CAMERAS[0].start = {
-                //     position: new Float32Array([this.cameraPosition[0], this.cameraPosition[1], this.cameraPosition[2]]),
-                //     rotation: new Float32Array([this.cameraRotation[0], this.cameraRotation[1], this.cameraRotation[2]]),
-                // }
-                // this.logCamera();
-            }
-            else if (event.key === "2") {
-                // this.CAMERAS[0].end = {
-                //     position: new Float32Array([this.cameraPosition[0], this.cameraPosition[1], this.cameraPosition[2]]),
-                //     rotation: new Float32Array([this.cameraRotation[0], this.cameraRotation[1], this.cameraRotation[2]]),
-                // }
-                // this.logCamera();
-            }
-            else if (event.key === "5") {
-                this.changePlane();
-            }
-            else if (event.key === "6") {
-                this.changeTerrain();
-            }
-            else if (event.key === "7") {
-                this.changePlanePalette();
-            }
-            else if (event.key === "n") {
-                // this.nextCamera();
-            }
-        });
     }
     setCustomCamera(camera, position, rotation) {
         this.customCamera = camera;
@@ -470,7 +442,6 @@ class Renderer extends webgl_framework_1.BaseRenderer {
         }
     }
     drawPlane(offset, timersOffset, timerPropOffset) {
-        var _a, _b, _c;
         if (this.shaderPlaneBody === undefined || this.shaderGlass === undefined) {
             return;
         }
@@ -503,9 +474,6 @@ class Renderer extends webgl_framework_1.BaseRenderer {
             propZ += Math.cos(banking) * propOffsetZ;
             this.shaderPlaneBody.drawModel(this, this.fmProp, propX + x, y + propOffsetY, propZ + z + this.config.planeHeight, 0, time * Math.PI * 2, 0, 1, 1, 1);
         };
-        const propOffsetX = (_a = this.config.propOffsetX) !== null && _a !== void 0 ? _a : 33;
-        const propOffsetY = (_b = this.config.propOffsetY) !== null && _b !== void 0 ? _b : 10;
-        const propOffsetZ = (_c = this.config.propOffsetZ) !== null && _c !== void 0 ? _c : 22;
         this.shaderGlass.use();
         this.setTexture2D(0, this.textureGlass, this.shaderGlass.sTexture);
         this.gl.uniform4f(this.shaderGlass.lightDir, this.lightDir[0], this.lightDir[1], this.lightDir[2], 0);
@@ -523,7 +491,6 @@ class Renderer extends webgl_framework_1.BaseRenderer {
         this.gl.uniform4f(this.shaderPlaneBody.diffuse, 1, 1, 1, 0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseCoef, 1.0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseExponent, 1.0);
-        // drawProp(propOffsetX, propOffsetY, propOffsetZ, 0);
         for (let i = 0; i < plane.props.length; i++) {
             const prop = plane.props[i];
             const time = (this.timerPlaneProp + timerPropOffset + i * 0.23) % 1.0;

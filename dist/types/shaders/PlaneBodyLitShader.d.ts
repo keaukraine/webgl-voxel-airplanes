@@ -8,7 +8,7 @@ export declare class PlaneBodyLitShader extends DiffuseShader {
     lightDir: WebGLUniformLocation | undefined;
     diffuseCoef: WebGLUniformLocation | undefined;
     diffuseExponent: WebGLUniformLocation | undefined;
-    rm_Normal: number | undefined;
+    rm_NormalColor: number | undefined;
     fillCode(): void;
     fillUniformsAttributes(): void;
     /** @inheritdoc */
