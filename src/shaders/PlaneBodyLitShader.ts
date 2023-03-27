@@ -12,51 +12,67 @@ export class PlaneBodyLitShader extends DiffuseShader {
     diffuseExponent: WebGLUniformLocation | undefined;
 
     // Attributes are numbers.
-    rm_Normal: number | undefined;
+    rm_NormalColor: number | undefined;
 
     fillCode() {
-        this.vertexShaderCode = "#version 300 es\n" +
-            "uniform vec4 lightDir;\n" +
-            "uniform mat4 view_matrix;\n" +
-            "uniform mat4 model_matrix;\n" +
-            "uniform mat4 view_proj_matrix;\n" +
-            "uniform vec4 diffuse;\n" +
-            "uniform vec4 ambient;\n" +
-            "uniform float diffuseCoef;\n" +
-            "uniform float diffuseExponent;\n" +
-            "\n" +
-            "out vec2 vTexCoord;\n" +
-            "out vec4 vDiffuseColor;\n" +
-            "\n" +
-            "in float rm_TexCoord0;\n" +
-            "in vec4 rm_Vertex;\n" +
-            "in vec3 rm_Normal;\n" +
-            "\n" +
-            "void main(void)\n" +
-            "{\n" +
-            "   gl_Position = view_proj_matrix * rm_Vertex;\n" +
-            "\n" +
-            "   vec3 vLightVec = (view_matrix * lightDir).xyz;\n" +
-            "   vec4 normal = model_matrix * vec4(rm_Normal, 0.0);\n" +
-            "   vec3 vNormal = normalize(view_matrix * normal).xyz;\n" +
-            "   float d = pow(max(0.0, dot(vNormal, normalize(vLightVec))), diffuseExponent);\n" +
-            "   vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef);\n" +
-            "\n" +
-            "   vTexCoord = vec2(rm_TexCoord0, 0.5);\n" +
-            "}\n";
+        this.vertexShaderCode = `#version 300 es
+            uniform vec4 lightDir;
+            uniform mat4 view_matrix;
+            uniform mat4 model_matrix;
+            uniform mat4 view_proj_matrix;
+            uniform vec4 diffuse;
+            uniform vec4 ambient;
+            uniform float diffuseCoef;
+            uniform float diffuseExponent;
 
-        this.fragmentShaderCode = "#version 300 es\n" +
-            "precision mediump float;\n" +
-            "uniform sampler2D sTexture;\n" +
-            "\n" +
-            "in vec2 vTexCoord;\n" +
-            "in vec4 vDiffuseColor;\n" +
-            "out vec4 fragColor;\n" +
-            "\n" +
-            "void main(void)\n" +
-            "{\n" +
-            "   fragColor = vDiffuseColor * textureLod(sTexture, vTexCoord, 0.0);\n" +
-            "}\n";
+            out vec2 vTexCoord;
+            out vec4 vDiffuseColor;
+
+            in vec4 rm_Vertex;
+            in uint rm_NormalColor; // Packed normal + color indices: CCCCCNNN
+
+            const vec3 NORMALS[6] = vec3[6](
+                vec3(1.0f, 0.0f, 0.0f),
+                vec3(-1.0f, 0.0f, 0.0f),
+                vec3(0.0f,  1.0f, 0.0f),
+                vec3(0.0f,  -1.0f, 0.0f),
+                vec3(0.0f,  0.0f, 1.0f),
+                vec3(0.0f,  0.0f, -1.0f)
+            );
+
+            const float TEXEL_X = 1. / 32.;
+            const float TEXEL_HALF_X = 1. / 64.;
+            const float TEXEL_HALF_Y = 0.5;
+
+            void main(void)
+            {
+               gl_Position = view_proj_matrix * rm_Vertex;
+
+               uint normalIndex = rm_NormalColor & 7u;
+               uint colorIndex = rm_NormalColor >> 3u;
+               vec3 normalValue = NORMALS[normalIndex];
+
+               vec3 vLightVec = (view_matrix * lightDir).xyz;
+               vec4 normal = model_matrix * vec4(normalValue, 0.0);
+               vec3 vNormal = normalize(view_matrix * normal).xyz;
+               float d = pow(max(0.0, dot(vNormal, normalize(vLightVec))), diffuseExponent);
+               vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef);
+
+               vTexCoord = vec2(float(colorIndex) * TEXEL_X + TEXEL_HALF_X, TEXEL_HALF_Y);
+            }`;
+
+        this.fragmentShaderCode = `#version 300 es
+            precision mediump float;
+            uniform sampler2D sTexture;
+
+            in vec2 vTexCoord;
+            in vec4 vDiffuseColor;
+            out vec4 fragColor;
+
+            void main(void)
+            {
+               fragColor = vDiffuseColor * textureLod(sTexture, vTexCoord, 0.0);
+            }`;
     }
 
     fillUniformsAttributes() {
@@ -64,7 +80,7 @@ export class PlaneBodyLitShader extends DiffuseShader {
 
         this.view_matrix = this.getUniform("view_matrix");
         this.model_matrix = this.getUniform("model_matrix");
-        this.rm_Normal = this.getAttrib("rm_Normal");
+        this.rm_NormalColor = this.getAttrib("rm_NormalColor");
         this.ambient = this.getUniform("ambient");
         this.diffuse = this.getUniform("diffuse");
         this.lightDir = this.getUniform("lightDir");
@@ -82,7 +98,7 @@ export class PlaneBodyLitShader extends DiffuseShader {
     ): void {
         if (this.rm_Vertex === undefined
             || this.rm_TexCoord0 === undefined
-            || this.rm_Normal === undefined
+            || this.rm_NormalColor === undefined
             || this.view_proj_matrix === undefined
             || this.view_matrix === undefined
             || this.model_matrix === undefined
@@ -90,19 +106,14 @@ export class PlaneBodyLitShader extends DiffuseShader {
             return;
         }
 
-        const gl = renderer.gl;
+        const gl = renderer.gl as WebGL2RenderingContext;
 
         model.bindBuffers(gl);
 
         gl.enableVertexAttribArray(this.rm_Vertex);
-        gl.enableVertexAttribArray(this.rm_TexCoord0);
-        gl.enableVertexAttribArray(this.rm_Normal);
-        // gl.vertexAttribPointer(this.rm_Vertex, 3, gl.FLOAT, false, 4 * (3 + 2 + 3), 0);
-        // gl.vertexAttribPointer(this.rm_TexCoord0, 2, gl.FLOAT, false, 4 * (3 + 2 + 3), 4 * 3);
-        // gl.vertexAttribPointer(this.rm_Normal, 3, gl.FLOAT, false, 4 * (3 + 2 + 3), 4 * 5);
-        gl.vertexAttribPointer(this.rm_Vertex, 3, gl.BYTE, false, 8, 0);
-        gl.vertexAttribPointer(this.rm_TexCoord0, 1, gl.UNSIGNED_BYTE, true, 8, 3);
-        gl.vertexAttribPointer(this.rm_Normal, 3, gl.BYTE, true, 8, 4);
+        gl.enableVertexAttribArray(this.rm_NormalColor);
+        gl.vertexAttribPointer(this.rm_Vertex, 3, gl.BYTE, false, 4, 0);
+        gl.vertexAttribIPointer(this.rm_NormalColor, 1, gl.UNSIGNED_BYTE, 4, 3);
 
         renderer.calculateMVPMatrix(tx, ty, tz, rx, ry, rz, sx, sy, sz);
 

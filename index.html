@@ -13,7 +13,8 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <title>3D Voxel Airplanes WebGL demo</title>
     <link rel="stylesheet" href="styles/css/site.css">
-    <script src="dist/js/es/index.min.js"></script>
+    <!-- <script src="dist/js/es/index.min.js"></script> -->
+    <script src="dist/js/es/index.js"></script>
     <meta name="theme-color" content="#111111">
     <meta name="msapplication-navbutton-color" content="#111111">
     <meta name="apple-mobile-web-app-status-bar-style" content="#111111">
@@ -25,14 +26,14 @@
 <body>
     <svg xmlns="http://www.w3.org/2000/svg" style="width: 0; height: 0; position: absolute;">
         <filter id="dropshadow" height="130%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="2" /> <!-- stdDeviation is how much to blur -->
-            <feOffset dx="0" dy="0" result="offsetblur" /> <!-- how much to offset -->
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+            <feOffset dx="0" dy="0" result="offsetblur" />
             <feComponentTransfer>
-                <feFuncA type="linear" slope="1.6" /> <!-- slope is the opacity of the shadow -->
+                <feFuncA type="linear" slope="1.6" />
             </feComponentTransfer>
             <feMerge>
-                <feMergeNode /> <!-- this contains the offset blurred image -->
-                <feMergeNode in="SourceGraphic" /> <!-- this contains the element that the filter is applied to -->
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
             </feMerge>
         </filter>
     </svg>

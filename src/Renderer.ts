@@ -221,31 +221,8 @@ export class Renderer extends BaseRenderer {
 
     constructor() {
         super();
-        vec3.normalize(this.lightDir, [-1, -1, 1]);
 
-        document.addEventListener("keypress", event => {
-            if (event.key === "1") {
-                // this.CAMERAS[0].start = {
-                //     position: new Float32Array([this.cameraPosition[0], this.cameraPosition[1], this.cameraPosition[2]]),
-                //     rotation: new Float32Array([this.cameraRotation[0], this.cameraRotation[1], this.cameraRotation[2]]),
-                // }
-                // this.logCamera();
-            } else if (event.key === "2") {
-                // this.CAMERAS[0].end = {
-                //     position: new Float32Array([this.cameraPosition[0], this.cameraPosition[1], this.cameraPosition[2]]),
-                //     rotation: new Float32Array([this.cameraRotation[0], this.cameraRotation[1], this.cameraRotation[2]]),
-                // }
-                // this.logCamera();
-            } else if (event.key === "5") {
-                this.changePlane();
-            } else if (event.key === "6") {
-                this.changeTerrain();
-            } else if (event.key === "7") {
-                this.changePlanePalette();
-            } else if (event.key === "n") {
-                // this.nextCamera();
-            }
-        });
+        vec3.normalize(this.lightDir, [-1, -1, 1]);
     }
 
     setCustomCamera(camera: mat4 | undefined, position?: vec3, rotation?: vec3) {
@@ -621,10 +598,6 @@ export class Renderer extends BaseRenderer {
             );
         };
 
-        const propOffsetX = this.config.propOffsetX ?? 33;
-        const propOffsetY = this.config.propOffsetY ?? 10;
-        const propOffsetZ = this.config.propOffsetZ ?? 22;
-
         this.shaderGlass.use();
         this.setTexture2D(0, this.textureGlass!, this.shaderGlass.sTexture!);
         this.gl.uniform4f(this.shaderGlass.lightDir!, this.lightDir[0], this.lightDir[1], this.lightDir[2], 0);
@@ -650,8 +623,6 @@ export class Renderer extends BaseRenderer {
         this.gl.uniform4f(this.shaderPlaneBody.diffuse!, 1, 1, 1, 0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseCoef!, 1.0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseExponent!, 1.0);
-
-        // drawProp(propOffsetX, propOffsetY, propOffsetZ, 0);
 
         for (let i = 0; i < plane.props.length; i++) {
             const prop = plane.props[i];
