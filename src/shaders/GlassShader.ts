@@ -72,7 +72,7 @@ export class GlassShader extends BaseShader implements DrawableShader {
 
             void main(void) {
                fragColor = vDiffuseColor;
-               fragColor += texture(sTexture, vTexCoord);
+               fragColor += texture(sTexture, vTexCoord, 0.0);
             }`;
     }
 

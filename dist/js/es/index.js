@@ -2312,7 +2312,7 @@ class GlassShader extends BaseShader {
 
             void main(void) {
                fragColor = vDiffuseColor;
-               fragColor += texture(sTexture, vTexCoord);
+               fragColor += texture(sTexture, vTexCoord, 0.0);
             }`;
     }
     fillUniformsAttributes() {
