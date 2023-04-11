@@ -13,7 +13,7 @@ export class WindShader extends BaseShader implements DrawableShader {
             attribute vec4 rm_Vertex;
 
             void main() {
-              gl_Position = view_proj_matrix * rm_Vertex;
+                gl_Position = view_proj_matrix * rm_Vertex;
             }`;
 
         this.fragmentShaderCode = `precision mediump float;

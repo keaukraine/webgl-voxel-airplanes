@@ -9,7 +9,7 @@ class WindShader extends webgl_framework_1.BaseShader {
             attribute vec4 rm_Vertex;
 
             void main() {
-              gl_Position = view_proj_matrix * rm_Vertex;
+                gl_Position = view_proj_matrix * rm_Vertex;
             }`;
         this.fragmentShaderCode = `precision mediump float;
             uniform vec4 uColor;

@@ -10,9 +10,9 @@ class WindStripeShader extends webgl_framework_1.BaseShader {
 
             void main() {
                 const vec3 vertices[4] = vec3[4](vec3(-50.0f, -50.0f, 0.0f),
-                                                  vec3( 50.0f, -50.0f, 0.0f),
-                                                  vec3(-50.0f,  50.0f, 0.0f),
-                                                  vec3( 50.0f,  50.0f, 0.0f));
+                                                 vec3( 50.0f, -50.0f, 0.0f),
+                                                 vec3(-50.0f,  50.0f, 0.0f),
+                                                 vec3( 50.0f,  50.0f, 0.0f));
                 gl_Position = view_proj_matrix * vec4(vertices[gl_VertexID], 1.0f);
             }`;
         this.fragmentShaderCode = `#version 300 es

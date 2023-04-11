@@ -2185,8 +2185,8 @@ class PlaneBodyLitShader extends DiffuseShader {
             uniform vec4 ambient;
             uniform float diffuseCoef;
             uniform float diffuseExponent;
+            uniform sampler2D sTexture;
 
-            out vec2 vTexCoord;
             out vec4 vDiffuseColor;
 
             in vec4 rm_Vertex;
@@ -2201,12 +2201,7 @@ class PlaneBodyLitShader extends DiffuseShader {
                 vec3(0.0f,  0.0f, -1.0f)
             );
 
-            const float TEXEL_X = 1. / 32.;
-            const float TEXEL_HALF_X = 1. / 64.;
-            const float TEXEL_HALF_Y = 0.5;
-
-            void main(void)
-            {
+            void main(void) {
                gl_Position = view_proj_matrix * rm_Vertex;
 
                uint normalIndex = rm_NormalColor & 7u;
@@ -2218,20 +2213,15 @@ class PlaneBodyLitShader extends DiffuseShader {
                vec3 vNormal = normalize(view_matrix * normal).xyz;
                float d = pow(max(0.0, dot(vNormal, normalize(vLightVec))), diffuseExponent);
                vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef);
-
-               vTexCoord = vec2(float(colorIndex) * TEXEL_X + TEXEL_HALF_X, TEXEL_HALF_Y);
+               vDiffuseColor *= texelFetch(sTexture, ivec2(colorIndex, 0), 0);
             }`;
         this.fragmentShaderCode = `#version 300 es
             precision mediump float;
-            uniform sampler2D sTexture;
-
-            in vec2 vTexCoord;
             in vec4 vDiffuseColor;
             out vec4 fragColor;
 
-            void main(void)
-            {
-               fragColor = vDiffuseColor * textureLod(sTexture, vTexCoord, 0.0);
+            void main(void) {
+               fragColor = vDiffuseColor;
             }`;
     }
     fillUniformsAttributes() {
@@ -2283,6 +2273,7 @@ class GlassShader extends BaseShader {
             uniform float diffuseCoef;
             uniform float diffuseExponent;
             uniform float uTime;
+            uniform vec4 vColor;
 
             out vec2 vTexCoord;
             out vec4 vDiffuseColor;
@@ -2299,15 +2290,14 @@ class GlassShader extends BaseShader {
                 vec3(0.0f,  0.0f, -1.0f)
             );
 
-            void main(void)
-            {
+            void main(void) {
                gl_Position = view_proj_matrix * rm_Vertex;
 
                vec3 vLightVec = (view_matrix * lightDir).xyz;
                vec4 normal = model_matrix * vec4(NORMALS[rm_Normal], 0.0);
                vec3 vNormal = normalize(view_matrix * normal).xyz; // w component of rm_Normal might be ignored, and implicitly converted to vec4 in uniform declaration
                float d = pow(max(0.0, dot(vNormal, normalize(vLightVec))), diffuseExponent); // redundant normalize() ??
-               vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef);
+               vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef) * vColor;
 
                vTexCoord = rm_Vertex.xy * 0.02;
                vTexCoord.y += uTime;
@@ -2315,15 +2305,13 @@ class GlassShader extends BaseShader {
         this.fragmentShaderCode = `#version 300 es
             precision mediump float;
             uniform sampler2D sTexture;
-            uniform vec4 vColor;
 
             in vec2 vTexCoord;
             in vec4 vDiffuseColor;
             out vec4 fragColor;
 
-            void main(void)
-            {
-               fragColor = vDiffuseColor * vColor; texture(sTexture, vTexCoord);
+            void main(void) {
+               fragColor = vDiffuseColor;
                fragColor += texture(sTexture, vTexCoord);
             }`;
     }
@@ -2512,9 +2500,9 @@ class WindStripeShader extends BaseShader {
 
             void main() {
                 const vec3 vertices[4] = vec3[4](vec3(-50.0f, -50.0f, 0.0f),
-                                                  vec3( 50.0f, -50.0f, 0.0f),
-                                                  vec3(-50.0f,  50.0f, 0.0f),
-                                                  vec3( 50.0f,  50.0f, 0.0f));
+                                                 vec3( 50.0f, -50.0f, 0.0f),
+                                                 vec3(-50.0f,  50.0f, 0.0f),
+                                                 vec3( 50.0f,  50.0f, 0.0f));
                 gl_Position = view_proj_matrix * vec4(vertices[gl_VertexID], 1.0f);
             }`;
         this.fragmentShaderCode = `#version 300 es

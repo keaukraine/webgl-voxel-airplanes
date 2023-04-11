@@ -15,6 +15,7 @@ class GlassShader extends webgl_framework_1.BaseShader {
             uniform float diffuseCoef;
             uniform float diffuseExponent;
             uniform float uTime;
+            uniform vec4 vColor;
 
             out vec2 vTexCoord;
             out vec4 vDiffuseColor;
@@ -31,15 +32,14 @@ class GlassShader extends webgl_framework_1.BaseShader {
                 vec3(0.0f,  0.0f, -1.0f)
             );
 
-            void main(void)
-            {
+            void main(void) {
                gl_Position = view_proj_matrix * rm_Vertex;
 
                vec3 vLightVec = (view_matrix * lightDir).xyz;
                vec4 normal = model_matrix * vec4(NORMALS[rm_Normal], 0.0);
                vec3 vNormal = normalize(view_matrix * normal).xyz; // w component of rm_Normal might be ignored, and implicitly converted to vec4 in uniform declaration
                float d = pow(max(0.0, dot(vNormal, normalize(vLightVec))), diffuseExponent); // redundant normalize() ??
-               vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef);
+               vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef) * vColor;
 
                vTexCoord = rm_Vertex.xy * 0.02;
                vTexCoord.y += uTime;
@@ -47,15 +47,13 @@ class GlassShader extends webgl_framework_1.BaseShader {
         this.fragmentShaderCode = `#version 300 es
             precision mediump float;
             uniform sampler2D sTexture;
-            uniform vec4 vColor;
 
             in vec2 vTexCoord;
             in vec4 vDiffuseColor;
             out vec4 fragColor;
 
-            void main(void)
-            {
-               fragColor = vDiffuseColor * vColor; texture(sTexture, vTexCoord);
+            void main(void) {
+               fragColor = vDiffuseColor;
                fragColor += texture(sTexture, vTexCoord);
             }`;
     }

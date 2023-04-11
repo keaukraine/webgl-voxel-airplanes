@@ -24,8 +24,8 @@ export class PlaneBodyLitShader extends DiffuseShader {
             uniform vec4 ambient;
             uniform float diffuseCoef;
             uniform float diffuseExponent;
+            uniform sampler2D sTexture;
 
-            out vec2 vTexCoord;
             out vec4 vDiffuseColor;
 
             in vec4 rm_Vertex;
@@ -40,12 +40,7 @@ export class PlaneBodyLitShader extends DiffuseShader {
                 vec3(0.0f,  0.0f, -1.0f)
             );
 
-            const float TEXEL_X = 1. / 32.;
-            const float TEXEL_HALF_X = 1. / 64.;
-            const float TEXEL_HALF_Y = 0.5;
-
-            void main(void)
-            {
+            void main(void) {
                gl_Position = view_proj_matrix * rm_Vertex;
 
                uint normalIndex = rm_NormalColor & 7u;
@@ -57,21 +52,16 @@ export class PlaneBodyLitShader extends DiffuseShader {
                vec3 vNormal = normalize(view_matrix * normal).xyz;
                float d = pow(max(0.0, dot(vNormal, normalize(vLightVec))), diffuseExponent);
                vDiffuseColor = mix(ambient, diffuse, d * diffuseCoef);
-
-               vTexCoord = vec2(float(colorIndex) * TEXEL_X + TEXEL_HALF_X, TEXEL_HALF_Y);
+               vDiffuseColor *= texelFetch(sTexture, ivec2(colorIndex, 0), 0);
             }`;
 
         this.fragmentShaderCode = `#version 300 es
             precision mediump float;
-            uniform sampler2D sTexture;
-
-            in vec2 vTexCoord;
             in vec4 vDiffuseColor;
             out vec4 fragColor;
 
-            void main(void)
-            {
-               fragColor = vDiffuseColor * textureLod(sTexture, vTexCoord, 0.0);
+            void main(void) {
+               fragColor = vDiffuseColor;
             }`;
     }
 
