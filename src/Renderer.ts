@@ -7,9 +7,14 @@ import { GlassShader } from "./shaders/GlassShader";
 import { DiffuseScrollingFilteredShader } from "./shaders/DiffuseScrollingFilteredShader";
 import { DiffuseScrollingFilteredTransitionShader } from "./shaders/DiffuseScrollingFilteredTransitionShader";
 import { WindStripeShader } from "./shaders/WindStripeShader";
+import { PlaneTapAnimator } from "./PlaneTapAnimator";
+import { distancePointToLine, findLinePlaneIntersectionCoords } from "./MathUtils";
 
 const FOV_LANDSCAPE = 25.0;
 const FOV_PORTRAIT = 35.0;
+
+/** Maximum number of planes drawn at once: the center plane plus up to four formation planes. */
+const MAX_FORMATION_PLANES = 5;
 
 enum PlaneState {
     NORMAL,
@@ -38,6 +43,36 @@ interface PlanePreset {
     modelBody?: FullModel;
     modelGlass?: FullModel;
 }
+
+interface PlaneInstance {
+    offset: [number, number, number];
+    timersOffset: number;
+    propTimerOffset: number;
+}
+
+const PLANE_CENTER: PlaneInstance = { offset: [0, 0, 0], timersOffset: 0, propTimerOffset: 0 };
+const PLANE_TRIANGLE_1: PlaneInstance = { offset: [90, -90, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_TRIANGLE_2: PlaneInstance = { offset: [-90, -90, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_LARGE_TRIANGLE_1: PlaneInstance = { offset: [180, -180, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_LARGE_TRIANGLE_2: PlaneInstance = { offset: [-180, -180, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_CROSS_1: PlaneInstance = { offset: [110, -110, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_CROSS_2: PlaneInstance = { offset: [-110, -110, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_CROSS_3: PlaneInstance = { offset: [-110, 110, 0], timersOffset: 0.1, propTimerOffset: 0 };
+const PLANE_CROSS_4: PlaneInstance = { offset: [110, 110, 0], timersOffset: 0.2, propTimerOffset: 0.2 };
+const PLANE_LINE_1: PlaneInstance = { offset: [140, 0, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_LINE_2: PlaneInstance = { offset: [-140, 0, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_DIAMOND_3: PlaneInstance = { offset: [0, -190, 0], timersOffset: 0.2, propTimerOffset: 0.2 };
+
+/** Planes drawn for every formation, in draw order. The first plane is always the center one. */
+const FORMATION_PLANES: Record<Formation, PlaneInstance[]> = {
+    [Formation.Single]: [PLANE_CENTER],
+    [Formation.Triangle]: [PLANE_CENTER, PLANE_TRIANGLE_1, PLANE_TRIANGLE_2],
+    [Formation.LargeTriangle]: [PLANE_CENTER, PLANE_LARGE_TRIANGLE_1, PLANE_LARGE_TRIANGLE_2, PLANE_TRIANGLE_1, PLANE_TRIANGLE_2],
+    [Formation.Diamond]: [PLANE_CENTER, PLANE_TRIANGLE_1, PLANE_TRIANGLE_2, PLANE_DIAMOND_3],
+    [Formation.Cross]: [PLANE_CENTER, PLANE_CROSS_1, PLANE_CROSS_2, PLANE_CROSS_3, PLANE_CROSS_4],
+    [Formation.Line]: [PLANE_CENTER, PLANE_LINE_1, PLANE_LINE_2],
+};
+
 export class Renderer extends BaseRenderer {
     private lastTime = 0;
 
@@ -110,6 +145,18 @@ export class Renderer extends BaseRenderer {
     protected tmpPosition1: [number, number, number] = [0, 0, 0];
     protected tmpPosition2: [number, number, number] = [0, 0, 0];
     protected tmpPosition3: [number, number, number] = [0, 0, 0];
+
+    private planeTapAnimator = new PlaneTapAnimator(MAX_FORMATION_PLANES);
+
+    /** Distance from the tap ray to a plane center that still counts as a hit. */
+    private readonly TAP_HIT_RADIUS = 35;
+
+    private matTapViewInverted = mat4.create();
+    private matTapViewProjection = mat4.create();
+    private matTapViewProjectionInverted = mat4.create();
+    private vecTapCamera = vec3.create();
+    private vecTapFar = vec3.create();
+    private vecTapGround = vec3.create();
 
     public config = {
         planeHeight: 100,
@@ -244,6 +291,15 @@ export class Renderer extends BaseRenderer {
     }
 
     onAfterInit(): void {
+        console.log("====onafterinit");
+        const canvas = this.canvas;
+        if (canvas === undefined) {
+            return;
+        }
+
+        canvas.addEventListener("click", (event) => {
+            this.handleTap(event.clientX, event.clientY);
+        });
     }
 
     onInitError(): void {
@@ -352,6 +408,7 @@ export class Renderer extends BaseRenderer {
 
     animate(): void {
         const timeNow = new Date().getTime();
+        const deltaTime = this.lastTime === 0 ? 0 : timeNow - this.lastTime;
 
         if (this.lastTime != 0) {
             this.timerCamera = this.cameraMode === CameraMode.Rotating
@@ -386,6 +443,7 @@ export class Renderer extends BaseRenderer {
             }
         }
 
+        this.planeTapAnimator.update(deltaTime);
         this.lastTime = timeNow;
     }
 
@@ -522,52 +580,46 @@ export class Renderer extends BaseRenderer {
         Math.sin(this.timerGroundMovement2 * Math.PI * 2);
 
     private drawPlanes(formation: Formation): void {
-        this.drawPlane([0, 0, 0], 0, 0);
-        switch (formation) {
-            case Formation.Single:
-                break;
-            case Formation.LargeTriangle:
-                this.drawPlane([180, -180, 0], 0.1, 0.1);
-                this.drawPlane([-180, -180, 0], 0.2, 0.3);
-            case Formation.Triangle:
-                this.drawPlane([90, -90, 0], 0.1, 0.1);
-                this.drawPlane([-90, -90, 0], 0.2, 0.3);
-                break;
-            case Formation.Cross:
-                this.drawPlane([110, -110, 0], 0.1, 0.1);
-                this.drawPlane([-110, -110, 0], 0.2, 0.3);
-                this.drawPlane([-110, 110, 0], 0.1, 0);
-                this.drawPlane([110, 110, 0], 0.2, 0.2);
-                break;
-            case Formation.Line:
-                this.drawPlane([140, 0, 0], 0.1, 0.1);
-                this.drawPlane([-140, 0, 0], 0.2, 0.3);
-                break;
-            case Formation.Diamond:
-                this.drawPlane([90, -90, 0], 0.1, 0.1);
-                this.drawPlane([-90, -90, 0], 0.2, 0.3);
-                this.drawPlane([0, -190, 0], 0.2, 0.2);
-                break;
+        const planes = this.getFormationPlanes(formation);
+        for (let i = 0; i < planes.length; i++) {
+            this.drawPlane(planes[i], i);
         }
     }
 
-    private drawPlane(offset: [number, number, number], timersOffset: number, timerPropOffset: number): void {
+    /** Returns the planes of the given formation in draw order. The first plane is always the center one. */
+    private getFormationPlanes(formation: Formation): PlaneInstance[] {
+        return FORMATION_PLANES[formation];
+    }
+
+    /** Calculates the plane's current world position, including its idle movement. Z already includes the plane height. */
+    private getPlanePosition(plane: PlaneInstance): [number, number, number] {
+        const time1 = (this.timerPlaneWonder1 + plane.timersOffset) % 1.0;
+        const time2 = (this.timerPlaneWonder2 + plane.timersOffset) % 1.0;
+
+        return [
+            plane.offset[0] + Math.sin(time1 * 3 * Math.PI * 2) * this.config.planeWonderXY,
+            plane.offset[1] + Math.cos(time1 * 5 * Math.PI * 2) * this.config.planeWonderXY,
+            plane.offset[2] + Math.cos(time2 * Math.PI * 2) * this.config.planeWonderZ + this.config.planeHeight
+        ];
+    }
+
+    private drawPlane(plane: PlaneInstance, index: number): void {
         if (this.shaderPlaneBody === undefined || this.shaderGlass === undefined) {
             return;
         }
 
-        const plane = this.planePresets[this.config.currentPlane];
+        const preset = this.planePresets[this.config.currentPlane];
 
-        const time1 = (this.timerPlaneWonder1 + timersOffset) % 1.0;
-        const time2 = (this.timerPlaneWonder2 + timersOffset) % 1.0;
-        const timeGlass = (this.timerGlass + timersOffset) % 1.0;
-        const timeGlass2 = (this.timerGlass2 + timersOffset) % 1.0;
+        const timeGlass = (this.timerGlass + plane.timersOffset) % 1.0;
+        const timeGlass2 = (this.timerGlass2 + plane.timersOffset) % 1.0;
 
-        let x = offset[0] + Math.sin(time1 * 3 * Math.PI * 2) * this.config.planeWonderXY;
-        let y = offset[1] + Math.cos(time1 * 5 * Math.PI * 2) * this.config.planeWonderXY;
-        let z = offset[2] + Math.cos(time2 * Math.PI * 2) * this.config.planeWonderZ;
+        const position = this.getPlanePosition(plane);
+        let x = position[0] + this.planeTapAnimator.getOffsetX(index);
+        let y = position[1] + this.planeTapAnimator.getOffsetY(index);
+        let z = position[2] + this.planeTapAnimator.getOffsetZ(index);
 
-        let banking = this.getGroundSideMovementCoefficient() * this.config.planeBanking * plane.banking;
+        let banking = this.getGroundSideMovementCoefficient() * this.config.planeBanking * preset.banking;
+        banking += this.planeTapAnimator.getBankingOffset(index);
 
         if (this.statePlane === PlaneState.FLY_AWAY) {
             const c1 = Math.pow(this.timerPlaneTransition, 1.5);
@@ -592,7 +644,7 @@ export class Renderer extends BaseRenderer {
             this.shaderPlaneBody!.drawModel(
                 this,
                 this.fmProp,
-                propX + x, y + propOffsetY, propZ + z + this.config.planeHeight,
+                propX + x, y + propOffsetY, propZ + z,
                 0, time * Math.PI * 2, 0,
                 1, 1, 1
             );
@@ -611,7 +663,7 @@ export class Renderer extends BaseRenderer {
         this.shaderGlass.drawModel(
             this,
             this.fmPlaneGlass,
-            x, y, z + this.config.planeHeight,
+            x, y, z,
             0, banking, 0,
             1, 1, 1
         );
@@ -624,18 +676,102 @@ export class Renderer extends BaseRenderer {
         this.gl.uniform1f(this.shaderPlaneBody.diffuseCoef!, 1.0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseExponent!, 1.0);
 
-        for (let i = 0; i < plane.props.length; i++) {
-            const prop = plane.props[i];
-            const time = (this.timerPlaneProp + timerPropOffset + i * 0.23) % 1.0;
+        for (let i = 0; i < preset.props.length; i++) {
+            const prop = preset.props[i];
+            const time = (this.timerPlaneProp + plane.propTimerOffset + i * 0.23) % 1.0;
             drawProp(prop[0], prop[1], prop[2], time);
         }
 
         this.shaderPlaneBody.drawModel(
             this,
             this.fmPlaneBody,
-            x, y, z + this.config.planeHeight,
+            x, y, z,
             0, banking, 0,
             1, 1, 1
+        );
+    }
+
+    /** Handles a tap at the given client coordinates. */
+    private handleTap(clientX: number, clientY: number): void {
+console.log(`Tap at ${clientX}, ${clientY}`);
+        if (this.statePlane !== PlaneState.NORMAL) {
+            return;
+        }
+
+        const ground = this.getTapGroundIntersection(clientX, clientY);
+        if (ground === null) {
+            return;
+        }
+
+        const cameraX = this.vecTapCamera[0];
+        const cameraY = this.vecTapCamera[1];
+        const cameraZ = this.vecTapCamera[2];
+        const forwardX = this.vecTapFar[0] - cameraX;
+        const forwardY = this.vecTapFar[1] - cameraY;
+        const forwardZ = this.vecTapFar[2] - cameraZ;
+
+        const planes = this.getFormationPlanes(this.config.formation);
+        let hitIndex = -1;
+        let hitDistance = this.TAP_HIT_RADIUS;
+
+        for (let i = 0; i < planes.length; i++) {
+            const [planeX, planeY, planeZ] = this.getPlanePosition(planes[i]);
+
+            // Ignore planes behind the camera.
+            if ((planeX - cameraX) * forwardX + (planeY - cameraY) * forwardY + (planeZ - cameraZ) * forwardZ <= 0) {
+                continue;
+            }
+
+            const distance = distancePointToLine(
+                planeX, planeY, planeZ,
+                cameraX, cameraY, cameraZ,
+                ground[0], ground[1], ground[2]
+            );
+
+            if (distance < hitDistance) {
+                hitDistance = distance;
+                hitIndex = i;
+            }
+        }
+
+        if (hitIndex !== -1) {
+            this.planeTapAnimator.tap(hitIndex);
+        }
+    }
+
+    /**
+     * Casts a ray from the camera through the given client coordinates and
+     * returns its intersection with the horizontal plane at z = 0.
+     */
+    private getTapGroundIntersection(clientX: number, clientY: number): vec3 | null {
+        const canvas = this.canvas;
+        if (canvas === undefined) {
+            return null;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            return null;
+        }
+
+        mat4.multiply(this.matTapViewProjection, this.mProjMatrix, this.mVMatrix);
+        if (mat4.invert(this.matTapViewProjectionInverted, this.matTapViewProjection) === null
+            || mat4.invert(this.matTapViewInverted, this.mVMatrix) === null) {
+            return null;
+        }
+        mat4.getTranslation(this.vecTapCamera, this.matTapViewInverted);
+
+        const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+        const ndcY = 1 - ((clientY - rect.top) / rect.height) * 2;
+
+        vec3.set(this.vecTapFar, ndcX, ndcY, 1);
+        vec3.transformMat4(this.vecTapFar, this.vecTapFar, this.matTapViewProjectionInverted);
+
+        return findLinePlaneIntersectionCoords(
+            this.vecTapCamera[0], this.vecTapCamera[1], this.vecTapCamera[2],
+            this.vecTapFar[0], this.vecTapFar[1], this.vecTapFar[2],
+            0, 0, 1, 0, // Horizontal plane z = 0.
+            this.vecTapGround
         );
     }
 

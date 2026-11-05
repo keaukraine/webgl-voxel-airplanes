@@ -67,6 +67,15 @@ export declare class Renderer extends BaseRenderer {
     protected tmpPosition1: [number, number, number];
     protected tmpPosition2: [number, number, number];
     protected tmpPosition3: [number, number, number];
+    private planeTapAnimator;
+    /** Distance from the tap ray to a plane center that still counts as a hit. */
+    private readonly TAP_HIT_RADIUS;
+    private matTapViewInverted;
+    private matTapViewProjection;
+    private matTapViewProjectionInverted;
+    private vecTapCamera;
+    private vecTapFar;
+    private vecTapGround;
     config: {
         planeHeight: number;
         planeBanking: number;
@@ -123,7 +132,18 @@ export declare class Renderer extends BaseRenderer {
     private drawSceneObjects;
     private getGroundSideMovementCoefficient;
     private drawPlanes;
+    /** Returns the planes of the given formation in draw order. The first plane is always the center one. */
+    private getFormationPlanes;
+    /** Calculates the plane's current world position, including its idle movement. Z already includes the plane height. */
+    private getPlanePosition;
     private drawPlane;
+    /** Handles a tap at the given client coordinates. */
+    private handleTap;
+    /**
+     * Casts a ray from the camera through the given client coordinates and
+     * returns its intersection with the horizontal plane at z = 0.
+     */
+    private getTapGroundIntersection;
     private drawWind;
     private drawTerrain;
     private swapTerrainTextures;

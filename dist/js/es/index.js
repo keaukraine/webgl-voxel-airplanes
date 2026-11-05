@@ -1,3 +1,5 @@
+
+(function(l, r) { if (l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (window.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(window.document);
 class FullScreenUtils {
     /** Enters fullscreen. */
     enterFullScreen() {
@@ -1521,8 +1523,15 @@ class BaseRenderer {
     getViewMatrix() {
         return this.mVMatrix;
     }
+    /** @inheritdoc */
+    getProjectionMatrix() {
+        return this.mProjMatrix;
+    }
 }
 
+/**
+ * Simple shader using one texture.
+ */
 class DiffuseShader extends BaseShader {
     /** @inheritdoc */
     fillCode() {
@@ -1551,7 +1560,7 @@ class DiffuseShader extends BaseShader {
         this.sTexture = this.getUniform('sTexture');
     }
     /** @inheritdoc */
-    drawModel(renderer, model, tx, ty, tz, rx, ry, rz, sx, sy, sz) {
+    drawModel(renderer, model, tx, ty, tz, rx, ry, rz, sx, sy, sz, attribs) {
         if (this.rm_Vertex === undefined || this.rm_TexCoord0 === undefined || this.view_proj_matrix === undefined) {
             return;
         }
@@ -1559,8 +1568,15 @@ class DiffuseShader extends BaseShader {
         model.bindBuffers(gl);
         gl.enableVertexAttribArray(this.rm_Vertex);
         gl.enableVertexAttribArray(this.rm_TexCoord0);
-        gl.vertexAttribPointer(this.rm_Vertex, 3, gl.FLOAT, false, 4 * (3 + 2), 0);
-        gl.vertexAttribPointer(this.rm_TexCoord0, 2, gl.FLOAT, false, 4 * (3 + 2), 4 * 3);
+        if (attribs) {
+            for (const [key, value] of attribs) {
+                gl.vertexAttribPointer(key, ...value);
+            }
+        }
+        else {
+            gl.vertexAttribPointer(this.rm_Vertex, 3, gl.FLOAT, false, 4 * (3 + 2), 0);
+            gl.vertexAttribPointer(this.rm_TexCoord0, 2, gl.FLOAT, false, 4 * (3 + 2), 4 * 3);
+        }
         renderer.calculateMVPMatrix(tx, ty, tz, rx, ry, rz, sx, sy, sz);
         gl.uniformMatrix4fv(this.view_proj_matrix, false, renderer.getMVPMatrix());
         gl.drawElements(gl.TRIANGLES, model.getNumIndices() * 3, gl.UNSIGNED_SHORT, 0);
@@ -1735,6 +1751,67 @@ function invert(out, a) {
   out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
   out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
   out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+  return out;
+}
+/**
+ * Multiplies two mat4s
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {ReadonlyMat4} a the first operand
+ * @param {ReadonlyMat4} b the second operand
+ * @returns {mat4} out
+ */
+
+function multiply(out, a, b) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15]; // Cache only the current line of the second matrix
+
+  var b0 = b[0],
+      b1 = b[1],
+      b2 = b[2],
+      b3 = b[3];
+  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[4];
+  b1 = b[5];
+  b2 = b[6];
+  b3 = b[7];
+  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[8];
+  b1 = b[9];
+  b2 = b[10];
+  b3 = b[11];
+  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[12];
+  b1 = b[13];
+  b2 = b[14];
+  b3 = b[15];
+  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
   return out;
 }
 /**
@@ -2045,6 +2122,22 @@ function create() {
     out[2] = 0;
   }
 
+  return out;
+}
+/**
+ * Set the components of a vec3 to the given values
+ *
+ * @param {vec3} out the receiving vector
+ * @param {Number} x X component
+ * @param {Number} y Y component
+ * @param {Number} z Z component
+ * @returns {vec3} out
+ */
+
+function set(out, x, y, z) {
+  out[0] = x;
+  out[1] = y;
+  out[2] = z;
   return out;
 }
 /**
@@ -2527,8 +2620,162 @@ class WindStripeShader extends BaseShader {
     }
 }
 
+/**
+ * Easing functions.
+ *
+ * All functions take progress in the 0..1 range and return eased progress,
+ * usually also in the 0..1 range. `easeTapZ` is the exception: it returns a
+ * signed displacement.
+ */
+function easeInOutSine(t) {
+    return -(Math.cos(Math.PI * t) - 1) / 2;
+}
+/** Peak of the damped sine below, used to normalize its first dip to -1. */
+const TAP_Z_PEAK = 0.715;
+/**
+ * Vertical displacement for a tapped plane: a fast drop to -1, a small wobble
+ * above the original position and a slow settle back to 0.
+ *
+ * Values are in approximately [-1, 0.13] and both ends are 0.
+ */
+function easeTapZ(t) {
+    const wave = -Math.sin(t * Math.PI * 3) * (1 - t) * (1 - t) / TAP_Z_PEAK;
+    // Keep the overshoot above the original position subtle.
+    return wave > 0 ? wave * 0.35 : wave;
+}
+
+const DEFAULT_PLANE_COUNT = 4;
+const DEFAULT_DURATION = 2500;
+const DEFAULT_DROP_DEPTH = 30;
+const DEFAULT_HORIZONTAL_OFFSET = 25;
+const DEFAULT_BANKING_OFFSET = 0.35;
+/**
+ * Animated tap offsets for a fixed number of planes.
+ *
+ * Offsets and timers are stored in parallel arrays indexed by the plane's draw
+ * order. Each tap starts an independent animation for the tapped plane; the
+ * renderer reads the current offsets right before drawing that plane.
+ */
+class PlaneTapAnimator {
+    constructor(planeCount = DEFAULT_PLANE_COUNT, duration = DEFAULT_DURATION, dropDepth = DEFAULT_DROP_DEPTH, horizontalOffset = DEFAULT_HORIZONTAL_OFFSET, bankingOffset = DEFAULT_BANKING_OFFSET) {
+        this.duration = duration;
+        this.dropDepth = dropDepth;
+        this.horizontalOffset = horizontalOffset;
+        this.bankingOffset = bankingOffset;
+        this.timers = new Array(planeCount).fill(0);
+        this.running = new Array(planeCount).fill(false);
+        this.offsetsX = new Array(planeCount).fill(0);
+        this.offsetsY = new Array(planeCount).fill(0);
+        this.offsetsZ = new Array(planeCount).fill(0);
+        this.offsetsBanking = new Array(planeCount).fill(0);
+        this.randomX = new Array(planeCount).fill(0);
+        this.randomY = new Array(planeCount).fill(0);
+        this.randomBanking = new Array(planeCount).fill(0);
+    }
+    /** Starts the tap animation for the plane with the given draw order index. Does nothing while it is already running. */
+    tap(index) {
+        if (index < 0 || index >= this.timers.length || this.running[index]) {
+            return;
+        }
+        this.timers[index] = 0;
+        this.running[index] = true;
+        this.randomX[index] = (Math.random() * 2 - 1) * this.horizontalOffset;
+        this.randomY[index] = (Math.random() * 2 - 1) * this.horizontalOffset;
+        // Random direction, with a visible amount of roll.
+        const bankingDirection = Math.random() > 0.5 ? 1 : -1;
+        this.randomBanking[index] = bankingDirection * (0.5 + Math.random() * 0.5) * this.bankingOffset;
+    }
+    /** Advances all running animations by the given number of milliseconds. */
+    update(deltaMs) {
+        for (let i = 0; i < this.timers.length; i++) {
+            if (!this.running[i]) {
+                continue;
+            }
+            this.timers[i] += deltaMs / this.duration;
+            if (this.timers[i] >= 1) {
+                this.timers[i] = 0;
+                this.running[i] = false;
+                this.offsetsX[i] = 0;
+                this.offsetsY[i] = 0;
+                this.offsetsZ[i] = 0;
+                this.offsetsBanking[i] = 0;
+                continue;
+            }
+            const t = this.timers[i];
+            // Fast drop, small wobble, slow return to the original height.
+            this.offsetsZ[i] = easeTapZ(t) * this.dropDepth;
+            // Smooth in-out displacement and roll to the random position and back.
+            const horizontalProgress = t < 0.5 ? t * 2 : (1 - t) * 2;
+            const horizontalEase = easeInOutSine(horizontalProgress);
+            this.offsetsX[i] = this.randomX[i] * horizontalEase;
+            this.offsetsY[i] = this.randomY[i] * horizontalEase;
+            this.offsetsBanking[i] = this.randomBanking[i] * horizontalEase;
+        }
+    }
+    getOffsetX(index) {
+        var _a;
+        return (_a = this.offsetsX[index]) !== null && _a !== void 0 ? _a : 0;
+    }
+    getOffsetY(index) {
+        var _a;
+        return (_a = this.offsetsY[index]) !== null && _a !== void 0 ? _a : 0;
+    }
+    getOffsetZ(index) {
+        var _a;
+        return (_a = this.offsetsZ[index]) !== null && _a !== void 0 ? _a : 0;
+    }
+    getBankingOffset(index) {
+        var _a;
+        return (_a = this.offsetsBanking[index]) !== null && _a !== void 0 ? _a : 0;
+    }
+}
+
+/**
+ * Intersection of the line through the points `p` and `q` with the plane
+ * `ax + by + cz + d = 0`.
+ *
+ * Writes the intersection into `result` and returns it, or returns `null` when
+ * the line runs parallel to the plane, in which case `result` is left untouched.
+ * The intersection lies on the segment between `p` and `q` when the line
+ * parameter `t` is within 0..1, otherwise it lies on the extension of the segment.
+ */
+function findLinePlaneIntersectionCoords(px, py, pz, qx, qy, qz, a, b, c, d, result) {
+    // Denominator of the line parameter: zero when the line runs parallel to the plane.
+    const tDenom = a * (qx - px) + b * (qy - py) + c * (qz - pz);
+    if (tDenom === 0) {
+        return null;
+    }
+    const t = -(a * px + b * py + c * pz + d) / tDenom;
+    result[0] = px + t * (qx - px);
+    result[1] = py + t * (qy - py);
+    result[2] = pz + t * (qz - pz);
+    return result;
+}
+/**
+ * Shortest distance from the point `p` to the infinite line through `a` and `b`.
+ */
+function distancePointToLine(px, py, pz, ax, ay, az, bx, by, bz) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const abz = bz - az;
+    const apx = px - ax;
+    const apy = py - ay;
+    const apz = pz - az;
+    const abLength = Math.hypot(abx, aby, abz);
+    if (abLength === 0) {
+        return Math.hypot(apx, apy, apz);
+    }
+    // Distance is the length of the cross product divided by the line direction length.
+    const crossX = apy * abz - apz * aby;
+    const crossY = apz * abx - apx * abz;
+    const crossZ = apx * aby - apy * abx;
+    return Math.hypot(crossX, crossY, crossZ) / abLength;
+}
+
 const FOV_LANDSCAPE = 25.0;
 const FOV_PORTRAIT = 35.0;
+/** Maximum number of planes drawn at once: the center plane plus up to four formation planes. */
+const MAX_FORMATION_PLANES = 5;
 var PlaneState;
 (function (PlaneState) {
     PlaneState[PlaneState["NORMAL"] = 0] = "NORMAL";
@@ -2549,6 +2796,27 @@ var Formation;
     Formation[Formation["Cross"] = 4] = "Cross";
     Formation[Formation["Line"] = 5] = "Line";
 })(Formation || (Formation = {}));
+const PLANE_CENTER = { offset: [0, 0, 0], timersOffset: 0, propTimerOffset: 0 };
+const PLANE_TRIANGLE_1 = { offset: [90, -90, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_TRIANGLE_2 = { offset: [-90, -90, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_LARGE_TRIANGLE_1 = { offset: [180, -180, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_LARGE_TRIANGLE_2 = { offset: [-180, -180, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_CROSS_1 = { offset: [110, -110, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_CROSS_2 = { offset: [-110, -110, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_CROSS_3 = { offset: [-110, 110, 0], timersOffset: 0.1, propTimerOffset: 0 };
+const PLANE_CROSS_4 = { offset: [110, 110, 0], timersOffset: 0.2, propTimerOffset: 0.2 };
+const PLANE_LINE_1 = { offset: [140, 0, 0], timersOffset: 0.1, propTimerOffset: 0.1 };
+const PLANE_LINE_2 = { offset: [-140, 0, 0], timersOffset: 0.2, propTimerOffset: 0.3 };
+const PLANE_DIAMOND_3 = { offset: [0, -190, 0], timersOffset: 0.2, propTimerOffset: 0.2 };
+/** Planes drawn for every formation, in draw order. The first plane is always the center one. */
+const FORMATION_PLANES = {
+    [Formation.Single]: [PLANE_CENTER],
+    [Formation.Triangle]: [PLANE_CENTER, PLANE_TRIANGLE_1, PLANE_TRIANGLE_2],
+    [Formation.LargeTriangle]: [PLANE_CENTER, PLANE_LARGE_TRIANGLE_1, PLANE_LARGE_TRIANGLE_2, PLANE_TRIANGLE_1, PLANE_TRIANGLE_2],
+    [Formation.Diamond]: [PLANE_CENTER, PLANE_TRIANGLE_1, PLANE_TRIANGLE_2, PLANE_DIAMOND_3],
+    [Formation.Cross]: [PLANE_CENTER, PLANE_CROSS_1, PLANE_CROSS_2, PLANE_CROSS_3, PLANE_CROSS_4],
+    [Formation.Line]: [PLANE_CENTER, PLANE_LINE_1, PLANE_LINE_2],
+};
 class Renderer extends BaseRenderer {
     constructor() {
         super();
@@ -2596,6 +2864,15 @@ class Renderer extends BaseRenderer {
         this.tmpPosition1 = [0, 0, 0];
         this.tmpPosition2 = [0, 0, 0];
         this.tmpPosition3 = [0, 0, 0];
+        this.planeTapAnimator = new PlaneTapAnimator(MAX_FORMATION_PLANES);
+        /** Distance from the tap ray to a plane center that still counts as a hit. */
+        this.TAP_HIT_RADIUS = 35;
+        this.matTapViewInverted = create$1();
+        this.matTapViewProjection = create$1();
+        this.matTapViewProjectionInverted = create$1();
+        this.vecTapCamera = create();
+        this.vecTapFar = create();
+        this.vecTapGround = create();
         this.config = {
             planeHeight: 100,
             planeBanking: 0.25,
@@ -2710,6 +2987,14 @@ class Renderer extends BaseRenderer {
     onBeforeInit() {
     }
     onAfterInit() {
+        console.log("====onafterinit");
+        const canvas = this.canvas;
+        if (canvas === undefined) {
+            return;
+        }
+        canvas.addEventListener("click", (event) => {
+            this.handleTap(event.clientX, event.clientY);
+        });
     }
     onInitError() {
         var _a, _b;
@@ -2796,6 +3081,7 @@ class Renderer extends BaseRenderer {
     }
     animate() {
         const timeNow = new Date().getTime();
+        const deltaTime = this.lastTime === 0 ? 0 : timeNow - this.lastTime;
         if (this.lastTime != 0) {
             this.timerCamera = this.cameraMode === CameraMode.Rotating
                 ? (timeNow % this.CAMERA_PERIOD) / this.CAMERA_PERIOD
@@ -2826,6 +3112,7 @@ class Renderer extends BaseRenderer {
                 }
             }
         }
+        this.planeTapAnimator.update(deltaTime);
         this.lastTime = timeNow;
     }
     /** Calculates projection matrix */
@@ -2931,47 +3218,38 @@ class Renderer extends BaseRenderer {
         this.gl.depthMask(true);
     }
     drawPlanes(formation) {
-        this.drawPlane([0, 0, 0], 0, 0);
-        switch (formation) {
-            case Formation.Single:
-                break;
-            case Formation.LargeTriangle:
-                this.drawPlane([180, -180, 0], 0.1, 0.1);
-                this.drawPlane([-180, -180, 0], 0.2, 0.3);
-            case Formation.Triangle:
-                this.drawPlane([90, -90, 0], 0.1, 0.1);
-                this.drawPlane([-90, -90, 0], 0.2, 0.3);
-                break;
-            case Formation.Cross:
-                this.drawPlane([110, -110, 0], 0.1, 0.1);
-                this.drawPlane([-110, -110, 0], 0.2, 0.3);
-                this.drawPlane([-110, 110, 0], 0.1, 0);
-                this.drawPlane([110, 110, 0], 0.2, 0.2);
-                break;
-            case Formation.Line:
-                this.drawPlane([140, 0, 0], 0.1, 0.1);
-                this.drawPlane([-140, 0, 0], 0.2, 0.3);
-                break;
-            case Formation.Diamond:
-                this.drawPlane([90, -90, 0], 0.1, 0.1);
-                this.drawPlane([-90, -90, 0], 0.2, 0.3);
-                this.drawPlane([0, -190, 0], 0.2, 0.2);
-                break;
+        const planes = this.getFormationPlanes(formation);
+        for (let i = 0; i < planes.length; i++) {
+            this.drawPlane(planes[i], i);
         }
     }
-    drawPlane(offset, timersOffset, timerPropOffset) {
+    /** Returns the planes of the given formation in draw order. The first plane is always the center one. */
+    getFormationPlanes(formation) {
+        return FORMATION_PLANES[formation];
+    }
+    /** Calculates the plane's current world position, including its idle movement. Z already includes the plane height. */
+    getPlanePosition(plane) {
+        const time1 = (this.timerPlaneWonder1 + plane.timersOffset) % 1.0;
+        const time2 = (this.timerPlaneWonder2 + plane.timersOffset) % 1.0;
+        return [
+            plane.offset[0] + Math.sin(time1 * 3 * Math.PI * 2) * this.config.planeWonderXY,
+            plane.offset[1] + Math.cos(time1 * 5 * Math.PI * 2) * this.config.planeWonderXY,
+            plane.offset[2] + Math.cos(time2 * Math.PI * 2) * this.config.planeWonderZ + this.config.planeHeight
+        ];
+    }
+    drawPlane(plane, index) {
         if (this.shaderPlaneBody === undefined || this.shaderGlass === undefined) {
             return;
         }
-        const plane = this.planePresets[this.config.currentPlane];
-        const time1 = (this.timerPlaneWonder1 + timersOffset) % 1.0;
-        const time2 = (this.timerPlaneWonder2 + timersOffset) % 1.0;
-        const timeGlass = (this.timerGlass + timersOffset) % 1.0;
-        const timeGlass2 = (this.timerGlass2 + timersOffset) % 1.0;
-        let x = offset[0] + Math.sin(time1 * 3 * Math.PI * 2) * this.config.planeWonderXY;
-        let y = offset[1] + Math.cos(time1 * 5 * Math.PI * 2) * this.config.planeWonderXY;
-        let z = offset[2] + Math.cos(time2 * Math.PI * 2) * this.config.planeWonderZ;
-        let banking = this.getGroundSideMovementCoefficient() * this.config.planeBanking * plane.banking;
+        const preset = this.planePresets[this.config.currentPlane];
+        const timeGlass = (this.timerGlass + plane.timersOffset) % 1.0;
+        const timeGlass2 = (this.timerGlass2 + plane.timersOffset) % 1.0;
+        const position = this.getPlanePosition(plane);
+        let x = position[0] + this.planeTapAnimator.getOffsetX(index);
+        let y = position[1] + this.planeTapAnimator.getOffsetY(index);
+        let z = position[2] + this.planeTapAnimator.getOffsetZ(index);
+        let banking = this.getGroundSideMovementCoefficient() * this.config.planeBanking * preset.banking;
+        banking += this.planeTapAnimator.getBankingOffset(index);
         if (this.statePlane === PlaneState.FLY_AWAY) {
             const c1 = Math.pow(this.timerPlaneTransition, 1.5);
             const c2 = Math.pow(this.timerPlaneTransition, 2.5);
@@ -2990,7 +3268,7 @@ class Renderer extends BaseRenderer {
             let propZ = Math.cos(banking + Math.PI / 2) * propOffsetX;
             propX += Math.sin(banking) * propOffsetZ;
             propZ += Math.cos(banking) * propOffsetZ;
-            this.shaderPlaneBody.drawModel(this, this.fmProp, propX + x, y + propOffsetY, propZ + z + this.config.planeHeight, 0, time * Math.PI * 2, 0, 1, 1, 1);
+            this.shaderPlaneBody.drawModel(this, this.fmProp, propX + x, y + propOffsetY, propZ + z, 0, time * Math.PI * 2, 0, 1, 1, 1);
         };
         this.shaderGlass.use();
         this.setTexture2D(0, this.textureGlass, this.shaderGlass.sTexture);
@@ -3001,7 +3279,7 @@ class Renderer extends BaseRenderer {
         this.gl.uniform1f(this.shaderGlass.diffuseExponent, 1.0);
         this.gl.uniform4f(this.shaderGlass.vColor, 0.6, 0.6, 1.0, 0);
         this.gl.uniform1f(this.shaderGlass.uTime, Math.sin(timeGlass2 * Math.PI * 2) > 0 ? timeGlass : 0.2);
-        this.shaderGlass.drawModel(this, this.fmPlaneGlass, x, y, z + this.config.planeHeight, 0, banking, 0, 1, 1, 1);
+        this.shaderGlass.drawModel(this, this.fmPlaneGlass, x, y, z, 0, banking, 0, 1, 1, 1);
         this.shaderPlaneBody.use();
         this.setTexture2D(0, this.texturePlane, this.shaderPlaneBody.sTexture);
         this.gl.uniform4f(this.shaderPlaneBody.lightDir, this.lightDir[0], this.lightDir[1], this.lightDir[2], 0);
@@ -3009,12 +3287,73 @@ class Renderer extends BaseRenderer {
         this.gl.uniform4f(this.shaderPlaneBody.diffuse, 1, 1, 1, 0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseCoef, 1.0);
         this.gl.uniform1f(this.shaderPlaneBody.diffuseExponent, 1.0);
-        for (let i = 0; i < plane.props.length; i++) {
-            const prop = plane.props[i];
-            const time = (this.timerPlaneProp + timerPropOffset + i * 0.23) % 1.0;
+        for (let i = 0; i < preset.props.length; i++) {
+            const prop = preset.props[i];
+            const time = (this.timerPlaneProp + plane.propTimerOffset + i * 0.23) % 1.0;
             drawProp(prop[0], prop[1], prop[2], time);
         }
-        this.shaderPlaneBody.drawModel(this, this.fmPlaneBody, x, y, z + this.config.planeHeight, 0, banking, 0, 1, 1, 1);
+        this.shaderPlaneBody.drawModel(this, this.fmPlaneBody, x, y, z, 0, banking, 0, 1, 1, 1);
+    }
+    /** Handles a tap at the given client coordinates. */
+    handleTap(clientX, clientY) {
+        console.log(`Tap at ${clientX}, ${clientY}`);
+        if (this.statePlane !== PlaneState.NORMAL) {
+            return;
+        }
+        const ground = this.getTapGroundIntersection(clientX, clientY);
+        if (ground === null) {
+            return;
+        }
+        const cameraX = this.vecTapCamera[0];
+        const cameraY = this.vecTapCamera[1];
+        const cameraZ = this.vecTapCamera[2];
+        const forwardX = this.vecTapFar[0] - cameraX;
+        const forwardY = this.vecTapFar[1] - cameraY;
+        const forwardZ = this.vecTapFar[2] - cameraZ;
+        const planes = this.getFormationPlanes(this.config.formation);
+        let hitIndex = -1;
+        let hitDistance = this.TAP_HIT_RADIUS;
+        for (let i = 0; i < planes.length; i++) {
+            const [planeX, planeY, planeZ] = this.getPlanePosition(planes[i]);
+            // Ignore planes behind the camera.
+            if ((planeX - cameraX) * forwardX + (planeY - cameraY) * forwardY + (planeZ - cameraZ) * forwardZ <= 0) {
+                continue;
+            }
+            const distance = distancePointToLine(planeX, planeY, planeZ, cameraX, cameraY, cameraZ, ground[0], ground[1], ground[2]);
+            if (distance < hitDistance) {
+                hitDistance = distance;
+                hitIndex = i;
+            }
+        }
+        if (hitIndex !== -1) {
+            this.planeTapAnimator.tap(hitIndex);
+        }
+    }
+    /**
+     * Casts a ray from the camera through the given client coordinates and
+     * returns its intersection with the horizontal plane at z = 0.
+     */
+    getTapGroundIntersection(clientX, clientY) {
+        const canvas = this.canvas;
+        if (canvas === undefined) {
+            return null;
+        }
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            return null;
+        }
+        multiply(this.matTapViewProjection, this.mProjMatrix, this.mVMatrix);
+        if (invert(this.matTapViewProjectionInverted, this.matTapViewProjection) === null
+            || invert(this.matTapViewInverted, this.mVMatrix) === null) {
+            return null;
+        }
+        getTranslation(this.vecTapCamera, this.matTapViewInverted);
+        const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+        const ndcY = 1 - ((clientY - rect.top) / rect.height) * 2;
+        set(this.vecTapFar, ndcX, ndcY, 1);
+        transformMat4(this.vecTapFar, this.vecTapFar, this.matTapViewProjectionInverted);
+        return findLinePlaneIntersectionCoords(this.vecTapCamera[0], this.vecTapCamera[1], this.vecTapCamera[2], this.vecTapFar[0], this.vecTapFar[1], this.vecTapFar[2], 0, 0, 1, 0, // Horizontal plane z = 0.
+        this.vecTapGround);
     }
     drawWind() {
         if (this.shaderWindStripe === undefined) {
@@ -3096,6 +3435,32 @@ class Renderer extends BaseRenderer {
  * This type of camera is good for displaying large scenes
  */
 class FpsCamera {
+    get angles() {
+        return this._angles;
+    }
+    set angles(value) {
+        this._angles = value;
+        this._dirty = true;
+    }
+    get position() {
+        return this._position;
+    }
+    set position(value) {
+        this._position = value;
+        this._dirty = true;
+    }
+    get viewMat() {
+        if (this._dirty) {
+            var mv = this._viewMat;
+            identity(mv);
+            rotateX(mv, mv, this.angles[0] - Math.PI / 2.0);
+            rotateZ(mv, mv, this.angles[1]);
+            rotateY(mv, mv, this.angles[2]);
+            translate(mv, mv, [-this.position[0], -this.position[1], -this.position[2]]);
+            this._dirty = false;
+        }
+        return this._viewMat;
+    }
     constructor(options) {
         var _a, _b;
         this._dirty = true;
@@ -3147,32 +3512,6 @@ class FpsCamera {
             }
         });
         this.canvas.addEventListener('mouseup', event => moving = false);
-    }
-    get angles() {
-        return this._angles;
-    }
-    set angles(value) {
-        this._angles = value;
-        this._dirty = true;
-    }
-    get position() {
-        return this._position;
-    }
-    set position(value) {
-        this._position = value;
-        this._dirty = true;
-    }
-    get viewMat() {
-        if (this._dirty) {
-            var mv = this._viewMat;
-            identity(mv);
-            rotateX(mv, mv, this.angles[0] - Math.PI / 2.0);
-            rotateZ(mv, mv, this.angles[1]);
-            rotateY(mv, mv, this.angles[2]);
-            translate(mv, mv, [-this.position[0], -this.position[1], -this.position[2]]);
-            this._dirty = false;
-        }
-        return this._viewMat;
     }
     update(frameTime) {
         const dir = create();
